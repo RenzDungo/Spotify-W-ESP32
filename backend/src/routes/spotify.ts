@@ -68,6 +68,7 @@ async function refreshAccessToken(refreshToken: string) {
  */
 
 router.get("/login", (req, res) => {
+  console.log("HIT BACKEND /login");
   const params = new URLSearchParams({
     response_type: "code",
     client_id: CLIENT_ID,

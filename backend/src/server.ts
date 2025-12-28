@@ -41,6 +41,4 @@ const HOST = "0.0.0.0"; // 👈 expose to LAN
 
 server.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on http://${HOST}:${PORT}`);
-  console.log("Spotify redirect URI:", process.env.SPOTIFY_REDIRECT_URI!);
-
 });
