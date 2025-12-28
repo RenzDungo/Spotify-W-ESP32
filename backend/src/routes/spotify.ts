@@ -124,57 +124,45 @@ router.get("/current-track", async (req, res) => {
     return res.status(401).json({ error: "Not logged in" });
   }
 
-  // Refresh token if needed
   if (isTokenExpired(spotify.expiresAt)) {
-    try {
-      const refreshed = await refreshAccessToken(spotify.refreshToken);
-      spotify.accessToken = refreshed.accessToken;
-      spotify.expiresAt = refreshed.expiresAt;
-    } catch (err) {
-      console.error("Token refresh failed:", err);
-      return res.status(401).json({ error: "Failed to refresh token" });
+    const refreshed = await refreshAccessToken(spotify.refreshToken);
+    spotify.accessToken = refreshed.accessToken;
+    spotify.expiresAt = refreshed.expiresAt;
+  }
+
+  const response = await fetch(
+    "https://api.spotify.com/v1/me/player/currently-playing",
+    {
+      headers: {
+        Authorization: `Bearer ${spotify.accessToken}`,
+      },
     }
-  }
+  );
 
-  let response;
-  try {
-    response = await fetch(
-      "https://api.spotify.com/v1/me/player/currently-playing",
-      {
-        headers: {
-          Authorization: `Bearer ${spotify.accessToken}`,
-        },
-      }
-    );
-  } catch (err) {
-    console.error("Spotify fetch failed:", err);
-    return res.status(502).json({ error: "Failed to reach Spotify" });
-  }
+  // 🔎 ADD THESE LINES (RIGHT HERE)
+  console.log("Spotify status:", response.status);
+  console.log(
+    "Spotify headers:",
+    Object.fromEntries(response.headers.entries())
+  );
+  // 🔎 END LOGGING
 
-  // ✅ Spotify: no active playback
   if (response.status === 204) {
     return res.json({ playing: false });
   }
 
-  // ✅ Handle non-JSON responses (Spotify does this a LOT)
   const contentType = response.headers.get("content-type");
   if (!contentType || !contentType.includes("application/json")) {
     const text = await response.text();
-
-    console.error("Spotify non-JSON response:", {
-      status: response.status,
-      body: text,
-    });
+    console.error("Spotify non-JSON response body:", text);
 
     return res.status(response.status).json({
-      error: "Spotify returned non-JSON response",
+      error: "Spotify error",
       details: text,
     });
   }
 
-  // ✅ Safe JSON parse
-  const data = await response.json();
-  return res.json(data);
+  res.json(await response.json());
 });
 
 
@@ -185,7 +173,6 @@ router.get("/logout", (req, res) => {
 });
 
 router.get("/status", (req, res) => {
-  console.log("Spotify redirect URI:", REDIRECT_URI);
   if (req.session?.spotify) {
     return res.json({ loggedIn: true });
   }
