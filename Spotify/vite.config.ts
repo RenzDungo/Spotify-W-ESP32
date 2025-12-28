@@ -13,13 +13,6 @@ export default defineConfig({
   server: {
     port: 5500,
     host: true,
-    proxy: {
-      "/api": {
-        target: "http://192.168.1.179:3500",
-        changeOrigin: true,
-        secure: false,
-      },
-    },
     allowedHosts: [
       "spotify.balloonhubgaming.com",
     ],

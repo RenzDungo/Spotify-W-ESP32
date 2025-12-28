@@ -41,7 +41,7 @@ function App() {
   const [track, setTrack] = useState<SpotifyCurrentTrack | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = "/api/spotify";
+  const API_BASE = "https://spotify-api.balloonhubgaming.com/api/spotify";
 
   /**
    * ============================

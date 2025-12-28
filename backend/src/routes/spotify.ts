@@ -11,7 +11,8 @@ const router = express.Router();
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID!;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET!;
-const REDIRECT_URI = "http://127.0.0.1:5500/api/spotify/callback";
+const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI!;
+
 
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -111,7 +112,7 @@ router.get("/callback", async (req, res) => {
     expiresAt: Date.now() + data.expires_in * 1000,
   };
 
-  res.redirect("/");
+  res.redirect("https://spotify.balloonhubgaming.com");
 
 });
 
