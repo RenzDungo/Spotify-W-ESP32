@@ -152,6 +152,7 @@ router.get("/logout", (req, res) => {
 });
 
 router.get("/status", (req, res) => {
+  console.log("Spotify redirect URI:", REDIRECT_URI);
   if (req.session?.spotify) {
     return res.json({ loggedIn: true });
   }
