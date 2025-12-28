@@ -1,0 +1,40 @@
+# Node dependencies
+node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist
+build
+out
+
+# Vite / React
+.vite
+.cache
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+
+# Git
+.git
+.gitignore
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Logs
+logs
+*.log
+
+# Tests
+coverage

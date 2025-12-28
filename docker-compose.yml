@@ -1,0 +1,29 @@
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: spotify-backend
+    ports:
+      - "5100:5100"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./Spotify
+    container_name: spotify-frontend
+    ports:
+      - "5501:5501"
+    volumes:
+      - ./Spotify:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - backend
+    restart: unless-stopped
