@@ -12,7 +12,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 import session from "express-session";
-
+app.use(
+  cors({
+    origin: "https://spotify.balloonhubgaming.com",
+    credentials: true,
+  })
+);
 app.use(
   session({
     name: "spotify.sid",
