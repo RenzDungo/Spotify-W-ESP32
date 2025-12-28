@@ -20,5 +20,8 @@ export default defineConfig({
         secure: false,
       },
     },
+    allowedHosts: [
+      "spotify.balloonhubgaming.com",
+    ],
     },
 })
