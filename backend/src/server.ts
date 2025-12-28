@@ -5,7 +5,8 @@ import http from "http";
 import "./db";
 import devicesRouter from "./routes/devices";
 import spotifyRouter from "./routes/spotify";
-
+import dotenv from "dotenv";
+dotenv.config();
 const app = express();
 
 app.use(cors());
@@ -35,4 +36,6 @@ const HOST = "0.0.0.0"; // 👈 expose to LAN
 
 server.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on http://${HOST}:${PORT}`);
+  console.log("Spotify redirect URI:", process.env.SPOTIFY_REDIRECT_URI!);
+
 });
