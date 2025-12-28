@@ -3,7 +3,7 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: spotify-backend
+    container_name: spotify-back
     ports:
       - "5100:5100"
     volumes:
@@ -16,9 +16,9 @@ services:
   frontend:
     build:
       context: ./Spotify
-    container_name: spotify-frontend
+    container_name: spotify-front
     ports:
-      - "5501:5501"
+      - "5500:5500"
     volumes:
       - ./Spotify:/app
       - /app/node_modules
