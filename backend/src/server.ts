@@ -18,6 +18,8 @@ app.use(
     credentials: true,
   })
 );
+app.set("trust proxy", 1);
+
 app.use(
   session({
     name: "spotify.sid",
@@ -25,11 +27,13 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      sameSite: "none",   // IMPORTANT
-      secure: true,    // true ONLY if https
+      sameSite: "none",
+      secure: true,
+      domain: ".balloonhubgaming.com", // 🔥 REQUIRED
     },
   })
 );
+
 
 app.use("/api/devices", devicesRouter);
 app.use("/api/spotify", spotifyRouter);
