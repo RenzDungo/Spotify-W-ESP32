@@ -124,27 +124,59 @@ router.get("/current-track", async (req, res) => {
     return res.status(401).json({ error: "Not logged in" });
   }
 
+  // Refresh token if needed
   if (isTokenExpired(spotify.expiresAt)) {
-    const refreshed = await refreshAccessToken(spotify.refreshToken);
-    spotify.accessToken = refreshed.accessToken;
-    spotify.expiresAt = refreshed.expiresAt;
+    try {
+      const refreshed = await refreshAccessToken(spotify.refreshToken);
+      spotify.accessToken = refreshed.accessToken;
+      spotify.expiresAt = refreshed.expiresAt;
+    } catch (err) {
+      console.error("Token refresh failed:", err);
+      return res.status(401).json({ error: "Failed to refresh token" });
+    }
   }
 
-  const response = await fetch(
-    "https://api.spotify.com/v1/me/player/currently-playing",
-    {
-      headers: {
-        Authorization: `Bearer ${spotify.accessToken}`,
-      },
-    }
-  );
+  let response;
+  try {
+    response = await fetch(
+      "https://api.spotify.com/v1/me/player/currently-playing",
+      {
+        headers: {
+          Authorization: `Bearer ${spotify.accessToken}`,
+        },
+      }
+    );
+  } catch (err) {
+    console.error("Spotify fetch failed:", err);
+    return res.status(502).json({ error: "Failed to reach Spotify" });
+  }
 
+  // ✅ Spotify: no active playback
   if (response.status === 204) {
     return res.json({ playing: false });
   }
 
-  res.json(await response.json());
+  // ✅ Handle non-JSON responses (Spotify does this a LOT)
+  const contentType = response.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    const text = await response.text();
+
+    console.error("Spotify non-JSON response:", {
+      status: response.status,
+      body: text,
+    });
+
+    return res.status(response.status).json({
+      error: "Spotify returned non-JSON response",
+      details: text,
+    });
+  }
+
+  // ✅ Safe JSON parse
+  const data = await response.json();
+  return res.json(data);
 });
+
 
 router.get("/logout", (req, res) => {
   req.session.destroy(() => {
