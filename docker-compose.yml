@@ -5,7 +5,7 @@ services:
       context: ./backend
     container_name: spotify-back
     ports:
-      - "5100:5100"
+      - "5100:3500"
     volumes:
       - ./backend:/app
       - /app/node_modules
