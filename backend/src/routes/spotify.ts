@@ -243,9 +243,9 @@ router.post("/current-track-ESP32", async (req,res) => {
   let auth = db.prepare<number,SpotifyAuthRow>(
     `
     SELECT
-      access_token,
-      refresh_token,
-      expires_at
+      spotify_access_token,
+      spotify_refresh_token,
+      spotify_expires_at,
     FROM spotify_auth
     WHERE id = ?
     `
