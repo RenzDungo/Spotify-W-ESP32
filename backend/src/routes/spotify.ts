@@ -26,9 +26,11 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
   throw new Error("Missing Spotify client credentials");
 }
 
-const SCOPES = ["user-read-playback-state", "user-read-currently-playing"].join(
-  " "
-);
+const SCOPES = [
+  "user-read-playback-state",
+  "user-read-currently-playing",
+  "user-modify-playback-state", // ✅ REQUIRED
+].join(" ");
 
 /**
  * ============================
