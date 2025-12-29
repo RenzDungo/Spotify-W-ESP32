@@ -245,7 +245,7 @@ router.post("/current-track-ESP32", async (req,res) => {
     SELECT
       spotify_access_token,
       spotify_refresh_token,
-      spotify_expires_at,
+      spotify_expires_at
     FROM spotify_auth
     WHERE id = ?
     `
