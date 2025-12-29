@@ -8,9 +8,9 @@ interface DeviceRow {
   spotify_auth_id: number;
 }
 type SpotifyAuthRow = {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number;
+  spotify_access_token: string;
+  spotify_refresh_token: string;
+  spotify_expires_at: number;
 };
 /**
  * ============================
@@ -222,41 +222,42 @@ router.get("/status", (req, res) => {
 });
 
 
-router.post("/current-track-ESP32", async (req,res) => {
-  try{
-  const {uuid} = req.body;
-  if (!uuid) {
-    return res.status(400).json({error:"Missing UUID"})
-  }
-  const device = db.prepare<string, DeviceRow>(
-    `
-    SELECT spotify_auth_id 
-    FROM devices
-    WHERE device_uuid = ?
-    `
-  ).get(uuid)
+router.post("/current-track-ESP32", async (req, res) => {
+  try {
+    const { uuid } = req.body;
+    if (!uuid) {
+      return res.status(400).json({ error: "Missing UUID" });
+    }
 
-  if (!device) {
-    return res.status(401).json({ error: "Device not authorized" });
-  }
+    const device = db.prepare<{ spotify_auth_id: number }>(
+      `
+      SELECT spotify_auth_id
+      FROM devices
+      WHERE device_uuid = ?
+      `
+    ).get(uuid) as DeviceRow;
 
-  let auth = db.prepare<number,SpotifyAuthRow>(
-    `
-    SELECT
-      spotify_access_token,
-      spotify_refresh_token,
-      spotify_expires_at
-    FROM spotify_auth
-    WHERE id = ?
-    `
-  ).get(device.spotify_auth_id)
+    if (!device) {
+      return res.status(401).json({ error: "Device not authorized" });
+    }
 
-  if (!auth) {
-    return res.status(401).json({error: "Spotify Account not linked"})
-  }
+    let auth = db.prepare<number, SpotifyAuthRow>(
+      `
+      SELECT
+        spotify_access_token,
+        spotify_refresh_token,
+        spotify_expires_at
+      FROM spotify_auth
+      WHERE id = ?
+      `
+    ).get(device.spotify_auth_id);
 
-   /* ---- REFRESH IF NEEDED ---- */
-    if (isTokenExpired(auth.expires_at)) {
+    if (!auth) {
+      return res.status(401).json({ error: "Spotify account not linked" });
+    }
+
+    /* ---- REFRESH IF NEEDED ---- */
+    if (isTokenExpired(auth.spotify_expires_at)) {
       const response = await fetch("https://accounts.spotify.com/api/token", {
         method: "POST",
         headers: {
@@ -269,30 +270,32 @@ router.post("/current-track-ESP32", async (req,res) => {
         },
         body: new URLSearchParams({
           grant_type: "refresh_token",
-          refresh_token: auth.refresh_token,
+          refresh_token: auth.spotify_refresh_token,
         }),
       });
 
       const data = await response.json();
-
       const newExpiresAt = Date.now() + data.expires_in * 1000;
 
       db.prepare(`
         UPDATE spotify_auth
-        SET access_token = ?, refresh_token = ?, expires_at = ?
+        SET
+          spotify_access_token = ?,
+          spotify_refresh_token = ?,
+          spotify_expires_at = ?
         WHERE id = ?
       `).run(
         data.access_token,
-        data.refresh_token ?? auth.refresh_token,
+        data.refresh_token ?? auth.spotify_refresh_token,
         newExpiresAt,
         device.spotify_auth_id
       );
 
       auth = {
-        ...auth,
-        access_token: data.access_token,
-        refresh_token: data.refresh_token ?? auth.refresh_token,
-        expires_at: newExpiresAt,
+        spotify_access_token: data.access_token,
+        spotify_refresh_token:
+          data.refresh_token ?? auth.spotify_refresh_token,
+        spotify_expires_at: newExpiresAt,
       };
     }
 
@@ -301,7 +304,7 @@ router.post("/current-track-ESP32", async (req,res) => {
       "https://api.spotify.com/v1/me/player/currently-playing",
       {
         headers: {
-          Authorization: `Bearer ${auth.access_token}`,
+          Authorization: `Bearer ${auth.spotify_access_token}`,
         },
       }
     );
@@ -313,12 +316,12 @@ router.post("/current-track-ESP32", async (req,res) => {
     const track = await trackRes.json();
 
     return res.json({
-      playing: true,
+      playing: track.is_playing ?? false,
       track: {
-        name: track.item?.name ?? null,
+        name: track.item?.name ?? "Not Playing",
         artist:
-          track.item?.artists?.map((a: any) => a.name).join(", ") ?? null,
-        album: track.item?.album?.name ?? null,
+          track.item?.artists?.map((a: any) => a.name).join(", ") ?? "",
+        album: track.item?.album?.name ?? "",
         image: track.item?.album?.images?.[2]?.url ?? null,
         progress_ms: track.progress_ms ?? 0,
         duration_ms: track.item?.duration_ms ?? 0,
@@ -329,6 +332,7 @@ router.post("/current-track-ESP32", async (req,res) => {
     console.error(err);
     return res.status(500).json({ error: "Internal server error" });
   }
-})
+});
+
 
 export default router;
