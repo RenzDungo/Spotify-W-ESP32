@@ -232,7 +232,7 @@ router.post("/current-track-ESP32", async (req,res) => {
     `
     SELECT spotify_auth_id 
     FROM devices
-    WHERE id = ?
+    WHERE device_uuid = ?
     `
   ).get(uuid)
 
