@@ -6,6 +6,7 @@ declare module "express-session" {
       accessToken: string;
       refreshToken: string;
       expiresAt: number;
+      spotifyAuthId: number;
     };
   }
 }

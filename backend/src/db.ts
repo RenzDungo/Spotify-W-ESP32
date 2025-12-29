@@ -16,7 +16,8 @@ db.prepare(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     spotify_access_token TEXT,
     spotify_refresh_token TEXT,
-    spotify_expires_at INTEGER
+    spotify_expires_at INTEGER,
+    expires_at INTEGER NOT NULL
   )
 `).run();
 
@@ -34,5 +35,27 @@ db.prepare(`
       ON DELETE SET NULL
   )
 `).run();
+
+//Functions for API
+export const insertSpotifyAuth = db.prepare(`
+  INSERT INTO spotify_auth (
+    spotify_user_id,
+    access_token,
+    refresh_token,
+    expires_at
+  )
+  VALUES (?, ?, ?, ?)
+`);
+
+export const updateSpotifyTokens = db.prepare(`
+  UPDATE spotify_auth
+  SET access_token = ?, refresh_token = ?, expires_at = ?
+  WHERE id = ?
+`);
+
+export const getSpotifyAuthById = db.prepare(`
+  SELECT * FROM spotify_auth WHERE id = ?
+`);
+
 
 console.log("✅ Database initialized (devices + spotify_auth)");

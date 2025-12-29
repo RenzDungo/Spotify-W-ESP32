@@ -41,7 +41,12 @@ function App() {
   const [track, setTrack] = useState<SpotifyCurrentTrack | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = "https://spotify-api.balloonhubgaming.com/api/spotify";
+  // 🔹 Device registration state
+  const [deviceUUID, setDeviceUUID] = useState("");
+  const [deviceStatus, setDeviceStatus] = useState<string | null>(null);
+  const [deviceLoading, setDeviceLoading] = useState(false);
+
+  const API_BASE = "https://spotify-api.balloonhubgaming.com/api";
 
   /**
    * ============================
@@ -50,7 +55,7 @@ function App() {
    */
 
   useEffect(() => {
-    fetch(`${API_BASE}/status`, {
+    fetch(`${API_BASE}/spotify/status`, {
       credentials: "include",
     })
       .then((res) => res.json())
@@ -66,21 +71,19 @@ function App() {
 
   /**
    * ============================
-   * ACTIONS (FORM-SAFE)
+   * ACTIONS
    * ============================
    */
 
   const login = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    e.stopPropagation();
-    window.location.href = `${API_BASE}/login`;
+    window.location.href = `${API_BASE}/spotify/login`;
   };
 
   const logout = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    e.stopPropagation();
 
-    await fetch(`${API_BASE}/logout`, {
+    await fetch(`${API_BASE}/spotify/logout`, {
       credentials: "include",
     });
 
@@ -88,12 +91,10 @@ function App() {
     setTrack(null);
   };
 
-  const fetchCurrentSong = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const fetchCurrentSong = async () => {
     setError(null);
 
-    const res = await fetch(`${API_BASE}/current-track`, {
+    const res = await fetch(`${API_BASE}/spotify/current-track`, {
       credentials: "include",
     });
 
@@ -110,6 +111,49 @@ function App() {
 
     const data = await res.json();
     setTrack(data);
+  };
+
+  /**
+   * ============================
+   * DEVICE REGISTRATION
+   * ============================
+   */
+
+  const registerDevice = async () => {
+    setDeviceStatus(null);
+
+    // Basic UUID sanity check
+    if (!deviceUUID || deviceUUID.length < 8) {
+      setDeviceStatus("Invalid UUID");
+      return;
+    }
+
+    setDeviceLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/devices/register`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ uuid: deviceUUID }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setDeviceStatus(data.error || "Device registration failed");
+        return;
+      }
+
+      setDeviceStatus("✅ Device successfully registered");
+      setDeviceUUID("");
+    } catch {
+      setDeviceStatus("Network error while registering device");
+    } finally {
+      setDeviceLoading(false);
+    }
   };
 
   /**
@@ -144,11 +188,7 @@ function App() {
         <>
           <p>You are not logged in to Spotify.</p>
 
-          <button
-            type="button"
-            onClick={login}
-            style={{ padding: "0.6rem 1rem" }}
-          >
+          <button onClick={login} style={{ padding: "0.6rem 1rem" }}>
             Login with Spotify
           </button>
         </>
@@ -160,16 +200,11 @@ function App() {
       {loggedIn && (
         <>
           <div style={{ marginBottom: "1rem" }}>
-            <button
-              type="button"
-              onClick={fetchCurrentSong}
-              style={{ padding: "0.6rem 1rem" }}
-            >
+            <button onClick={fetchCurrentSong} style={{ padding: "0.6rem 1rem" }}>
               Get Current Song
             </button>
 
             <button
-              type="button"
               onClick={logout}
               style={{ padding: "0.6rem 1rem", marginLeft: "1rem" }}
             >
@@ -177,6 +212,47 @@ function App() {
             </button>
           </div>
 
+          {/* ============================
+              DEVICE REGISTRATION
+             ============================ */}
+          <div
+            style={{
+              marginTop: "2rem",
+              padding: "1rem",
+              border: "1px solid #333",
+              maxWidth: "420px",
+            }}
+          >
+            <h2>Register ESP32 Device</h2>
+
+            <input
+              type="text"
+              placeholder="Device UUID"
+              value={deviceUUID}
+              onChange={(e) => setDeviceUUID(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.6rem",
+                marginBottom: "0.5rem",
+              }}
+            />
+
+            <button
+              onClick={registerDevice}
+              disabled={deviceLoading}
+              style={{ padding: "0.6rem 1rem" }}
+            >
+              {deviceLoading ? "Registering…" : "Register Device"}
+            </button>
+
+            {deviceStatus && (
+              <p style={{ marginTop: "0.5rem" }}>{deviceStatus}</p>
+            )}
+          </div>
+
+          {/* ============================
+              CURRENT TRACK
+             ============================ */}
           {error && <p style={{ color: "red" }}>{error}</p>}
 
           {track?.item ? (

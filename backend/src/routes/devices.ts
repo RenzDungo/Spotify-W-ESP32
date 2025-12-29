@@ -14,39 +14,59 @@ interface Device {
 
 /* --------------------
    REGISTER DEVICE
+   (REQUIRES SPOTIFY LOGIN)
 -------------------- */
 router.post("/register", (req, res) => {
-  const { deviceUUID } = req.body;
+  const { uuid } = req.body;
 
-  if (!deviceUUID) {
-    return res.status(400).json({ error: "Missing deviceUUID" });
+  // 1️⃣ Validate UUID
+  if (!uuid) {
+    return res.status(400).json({ error: "Missing uuid" });
+  }
+
+  // 2️⃣ Validate Spotify session
+  const spotifyAuthId = req.session?.spotify?.spotifyAuthId;
+
+  if (!spotifyAuthId) {
+    return res.status(401).json({
+      error: "Not authenticated with Spotify",
+    });
   }
 
   try {
+    // 3️⃣ Insert device bound to Spotify account
     db.prepare(`
-      INSERT INTO devices (device_uuid)
-      VALUES (?)
-    `).run(deviceUUID);
+      INSERT INTO devices (device_uuid, spotify_auth_id)
+      VALUES (?, ?)
+    `).run(uuid, spotifyAuthId);
 
     res.json({ success: true });
-  } catch {
-    res.status(409).json({ error: "Device already registered" });
+  } catch (err: any) {
+    if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      return res.status(409).json({
+        error: "Device UUID already registered",
+      });
+    }
+
+    console.error("Device register error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 /* --------------------
    VERIFY DEVICE
+   (ESP32 SAFE)
 -------------------- */
 router.post("/verify", (req, res) => {
-  const { deviceUUID } = req.body;
+  const { uuid } = req.body;
 
-  if (!deviceUUID) {
-    return res.status(400).json({ error: "Missing deviceUUID" });
+  if (!uuid) {
+    return res.status(400).json({ error: "Missing uuid" });
   }
 
   const device = db
     .prepare(`SELECT * FROM devices WHERE device_uuid = ?`)
-    .get(deviceUUID) as Device | undefined;
+    .get(uuid) as Device | undefined;
 
   if (!device) {
     return res.status(401).json({ valid: false });
@@ -54,7 +74,8 @@ router.post("/verify", (req, res) => {
 
   res.json({
     valid: true,
-    linkedToSpotify: device.spotify_auth_id !== null
+    linkedToSpotify: device.spotify_auth_id !== null,
+    spotify_auth_id: device.spotify_auth_id, // optional, useful for debugging
   });
 });
 
