@@ -27,6 +27,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
+      httpOnly: true,
       sameSite: "none",
       secure: true,
       domain: ".balloonhubgaming.com", // 🔥 REQUIRED
