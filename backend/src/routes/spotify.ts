@@ -322,7 +322,7 @@ router.post("/current-track-ESP32", async (req, res) => {
         artist:
           track.item?.artists?.map((a: any) => a.name).join(", ") ?? "",
         album: track.item?.album?.name ?? "",
-        image: track.item?.album?.images?.[2]?.url ?? null,
+        image: track.item?.album?.images?.[1]?.url ?? null,
         progress_ms: track.progress_ms ?? 0,
         duration_ms: track.item?.duration_ms ?? 0,
         is_playing: track.is_playing ?? false,
