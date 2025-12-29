@@ -39,7 +39,7 @@ db.prepare(`
 //Functions for API
 export const insertSpotifyAuth = db.prepare(`
   INSERT INTO spotify_auth (
-    spotify_user_id,
+    id,
     access_token,
     refresh_token,
     expires_at
