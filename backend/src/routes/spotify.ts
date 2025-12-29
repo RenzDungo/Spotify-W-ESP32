@@ -350,5 +350,206 @@ router.post("/current-track-ESP32", async (req, res) => {
   }
 });
 
+//Play Next Track Route
+router.post("/play-next-ESP32", async (req, res) => {
+  try {
+    const { uuid } = req.body;
+    if (!uuid) {
+      return res.status(400).json({ error: "Missing UUID" });
+    }
+
+    const device = db.prepare<{ spotify_auth_id: number }>(
+      `
+      SELECT spotify_auth_id
+      FROM devices
+      WHERE device_uuid = ?
+      `
+    ).get(uuid) as DeviceRow;
+
+    if (!device) {
+      return res.status(401).json({ error: "Device not authorized" });
+    }
+
+    let auth = db.prepare<number, SpotifyAuthRow>(
+      `
+      SELECT
+        spotify_access_token,
+        spotify_refresh_token,
+        spotify_expires_at
+      FROM spotify_auth
+      WHERE id = ?
+      `
+    ).get(device.spotify_auth_id);
+
+    if (!auth) {
+      return res.status(401).json({ error: "Spotify account not linked" });
+    }
+
+    /* ---- REFRESH IF NEEDED ---- */
+    if (isTokenExpired(auth.spotify_expires_at)) {
+      const response = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization:
+            "Basic " +
+            Buffer.from(
+              `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+            ).toString("base64"),
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: auth.spotify_refresh_token,
+        }),
+      });
+
+      const data = await response.json();
+      const newExpiresAt = Date.now() + data.expires_in * 1000;
+
+      db.prepare(`
+        UPDATE spotify_auth
+        SET
+          spotify_access_token = ?,
+          spotify_refresh_token = ?,
+          spotify_expires_at = ?
+        WHERE id = ?
+      `).run(
+        data.access_token,
+        data.refresh_token ?? auth.spotify_refresh_token,
+        newExpiresAt,
+        device.spotify_auth_id
+      );
+
+      auth = {
+        spotify_access_token: data.access_token,
+        spotify_refresh_token:
+          data.refresh_token ?? auth.spotify_refresh_token,
+        spotify_expires_at: newExpiresAt,
+      };
+    }
+
+    /* ---- PLAY NEXT TRACK ---- */
+    const nextRes = await fetch(
+      "https://api.spotify.com/v1/me/player/next",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${auth.spotify_access_token}`,
+        },
+      }
+    );
+
+    if (!nextRes.ok) {
+      const text = await nextRes.text();
+      return res.status(nextRes.status).json({ error: text });
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+//Play Prev Track
+router.post("/play-prev-ESP32", async (req, res) => {
+  try {
+    const { uuid } = req.body;
+    if (!uuid) {
+      return res.status(400).json({ error: "Missing UUID" });
+    }
+
+    const device = db.prepare<{ spotify_auth_id: number }>(
+      `
+      SELECT spotify_auth_id
+      FROM devices
+      WHERE device_uuid = ?
+      `
+    ).get(uuid) as DeviceRow;
+
+    if (!device) {
+      return res.status(401).json({ error: "Device not authorized" });
+    }
+
+    let auth = db.prepare<number, SpotifyAuthRow>(
+      `
+      SELECT
+        spotify_access_token,
+        spotify_refresh_token,
+        spotify_expires_at
+      FROM spotify_auth
+      WHERE id = ?
+      `
+    ).get(device.spotify_auth_id);
+
+    if (!auth) {
+      return res.status(401).json({ error: "Spotify account not linked" });
+    }
+
+    /* ---- REFRESH IF NEEDED ---- */
+    if (isTokenExpired(auth.spotify_expires_at)) {
+      const response = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization:
+            "Basic " +
+            Buffer.from(
+              `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+            ).toString("base64"),
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: auth.spotify_refresh_token,
+        }),
+      });
+
+      const data = await response.json();
+      const newExpiresAt = Date.now() + data.expires_in * 1000;
+
+      db.prepare(`
+        UPDATE spotify_auth
+        SET
+          spotify_access_token = ?,
+          spotify_refresh_token = ?,
+          spotify_expires_at = ?
+        WHERE id = ?
+      `).run(
+        data.access_token,
+        data.refresh_token ?? auth.spotify_refresh_token,
+        newExpiresAt,
+        device.spotify_auth_id
+      );
+
+      auth = {
+        spotify_access_token: data.access_token,
+        spotify_refresh_token:
+          data.refresh_token ?? auth.spotify_refresh_token,
+        spotify_expires_at: newExpiresAt,
+      };
+    }
+
+    /* ---- PLAY PREVIOUS TRACK ---- */
+    const prevRes = await fetch(
+      "https://api.spotify.com/v1/me/player/previous",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${auth.spotify_access_token}`,
+        },
+      }
+    );
+
+    if (!prevRes.ok) {
+      const text = await prevRes.text();
+      return res.status(prevRes.status).json({ error: text });
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 export default router;
