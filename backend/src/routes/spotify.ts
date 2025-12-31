@@ -320,7 +320,9 @@ router.post("/current-track-ESP32", async (req, res) => {
   track.item?.album?.images?.find((i: any) => i.width === 300)?.url;
 
   let albumBase64: string | null = null;
-  if (!album300) {return res.status(204).end();}
+  if (!album300) {
+    console.log("No 300x300 Album")
+    return res.status(204).end();}
     const imgRes = await fetch(album300);
     const imgBuf = Buffer.from(await imgRes.arrayBuffer());
 
