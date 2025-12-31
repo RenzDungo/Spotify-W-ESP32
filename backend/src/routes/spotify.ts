@@ -329,9 +329,14 @@ router.post("/current-track-ESP32", async (req, res) => {
       .jpeg({ quality: 70 })
       .toBuffer();
 
-  res.setHeader("Content-Type", "image/jpeg");
-  res.setHeader("Content-Length", resized.length.toString());
-return res.send(resized);
+
+  res.status(200);
+  res.set("Content-Type", "image/jpeg");
+  res.set("Content-Length", resized.length.toString());
+  res.set("X-Track-Name", track.name);
+  res.set("X-Track-Artist", track.artist);
+  
+  return res.send(resized);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Internal server error" });
