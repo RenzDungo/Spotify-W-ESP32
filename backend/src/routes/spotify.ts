@@ -312,6 +312,7 @@ router.post("/current-track-ESP32", async (req, res) => {
     );
 
     if (trackRes.status === 204) {
+      console.log("Not Playing")
       return res.json({ playing: false });
     }
 
