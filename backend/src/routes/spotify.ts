@@ -329,22 +329,9 @@ router.post("/current-track-ESP32", async (req, res) => {
       .jpeg({ quality: 70 })
       .toBuffer();
 
-    albumBase64 = resized.toString("base64");
-  
-    return res.json({
-      playing: track.is_playing ?? false,
-      track: {
-        name: track.item?.name ?? "Not Playing",
-        artist:
-          track.item?.artists?.map((a: any) => a.name).join(", ") ?? "",
-        album: track.item?.album?.name ?? "",
-        image: track.item?.album?.images?.[1]?.url ?? null,
-        resized: resized,
-        progress_ms: track.progress_ms ?? 0,
-        duration_ms: track.item?.duration_ms ?? 0,
-        is_playing: track.is_playing ?? false,
-      },
-    });
+  res.setHeader("Content-Type", "image/jpeg");
+  res.setHeader("Content-Length", resized.length.toString());
+return res.send(resized);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Internal server error" });
