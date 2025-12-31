@@ -224,14 +224,14 @@ router.get("/status", (req, res) => {
 });
 
 
-router.post("/current-track-ESP32", async (req, res) => {
+router.post("/current-track-ESP32/:uuid", async (req, res) => {
   try {
-    const { uuid } = req.body;
+    const { uuid } = req.params;
     if (!uuid) {
       return res.status(400).json({ error: "Missing UUID" });
     }
 
-    const device = db.prepare<{ spotify_auth_id: number }>(
+    const device = db.prepare(
       `
       SELECT spotify_auth_id
       FROM devices
