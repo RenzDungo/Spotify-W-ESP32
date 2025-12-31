@@ -320,8 +320,7 @@ router.post("/current-track-ESP32", async (req, res) => {
   track.item?.album?.images?.find((i: any) => i.width === 300)?.url;
 
   let albumBase64: string | null = null;
-
-  if (album300) {
+  if (!album300) {return res.status(204).end();}
     const imgRes = await fetch(album300);
     const imgBuf = Buffer.from(await imgRes.arrayBuffer());
 
@@ -331,7 +330,7 @@ router.post("/current-track-ESP32", async (req, res) => {
       .toBuffer();
 
     albumBase64 = resized.toString("base64");
-  }
+  
     return res.json({
       playing: track.is_playing ?? false,
       track: {
@@ -340,7 +339,7 @@ router.post("/current-track-ESP32", async (req, res) => {
           track.item?.artists?.map((a: any) => a.name).join(", ") ?? "",
         album: track.item?.album?.name ?? "",
         image: track.item?.album?.images?.[1]?.url ?? null,
-        album_image_base64: albumBase64,
+        resized: resized,
         progress_ms: track.progress_ms ?? 0,
         duration_ms: track.item?.duration_ms ?? 0,
         is_playing: track.is_playing ?? false,
