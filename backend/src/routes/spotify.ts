@@ -347,6 +347,7 @@ const trackRes = await fetch(
 );
 
 if (trackRes.status === 204) {
+  console.log("No Track playing")
   return res.json({ playing: false });
 }
 
