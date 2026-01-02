@@ -32,34 +32,39 @@ function rgb565Bmp(
   height: number
 ): Buffer {
   const fileHeaderSize = 14;
-  const dibHeaderSize = 40;
+  const dibHeaderSize = 56; // ✅ MUST be 56 for RGB565
   const pixelDataSize = width * height * 2;
   const fileSize = fileHeaderSize + dibHeaderSize + pixelDataSize;
 
   const header = Buffer.alloc(fileHeaderSize + dibHeaderSize);
 
-  // === FILE HEADER ===
-  header.write("BM", 0);                         // Signature
-  header.writeUInt32LE(fileSize, 2);              // File size
-  header.writeUInt32LE(0, 6);                     // Reserved
+  /* ===== BMP FILE HEADER ===== */
+  header.write("BM", 0);
+  header.writeUInt32LE(fileSize, 2);
+  header.writeUInt32LE(0, 6);
   header.writeUInt32LE(fileHeaderSize + dibHeaderSize, 10);
 
-  // === DIB HEADER ===
-  header.writeUInt32LE(dibHeaderSize, 14);        // DIB size
+  /* ===== DIB HEADER (BITMAPINFOHEADER) ===== */
+  header.writeUInt32LE(dibHeaderSize, 14); // header size
   header.writeInt32LE(width, 18);
-  header.writeInt32LE(-height, 22);               // top-down BMP
-  header.writeUInt16LE(1, 26);                    // Planes
-  header.writeUInt16LE(16, 28);                   // Bits per pixel
-  header.writeUInt32LE(3, 30);                    // BI_BITFIELDS
+  header.writeInt32LE(-height, 22);        // top-down
+  header.writeUInt16LE(1, 26);             // planes
+  header.writeUInt16LE(16, 28);            // bpp
+  header.writeUInt32LE(3, 30);             // BI_BITFIELDS
   header.writeUInt32LE(pixelDataSize, 34);
+  header.writeUInt32LE(0, 38);             // X ppm
+  header.writeUInt32LE(0, 42);             // Y ppm
+  header.writeUInt32LE(0, 46);             // colors used
+  header.writeUInt32LE(0, 50);             // important colors
 
-  // RGB565 masks
+  /* ===== RGB565 MASKS ===== */
   header.writeUInt32LE(0xF800, 54); // Red
   header.writeUInt32LE(0x07E0, 58); // Green
   header.writeUInt32LE(0x001F, 62); // Blue
 
   return Buffer.concat([header, rgb565]);
 }
+
 
 const SCOPES = [
   "user-read-playback-state",
