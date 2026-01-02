@@ -742,10 +742,8 @@ const bmp = rgb565Bmp(rgb565, info.width, info.height);
 // ✅ NORMAL JSON RESPONSE
 return res.json({
   playing: true,
-  track: {
-    name: track.item?.name ?? "",
-    artist: track.item?.artists?.map((a: any) => a.name).join(", ") ?? "",
-  },
+  name: track.item?.name ?? "",
+  artist: track.item?.artists?.map((a: any) => a.name).join(", ") ?? "",
   image: {
     format: "bmp",
     width: info.width,
