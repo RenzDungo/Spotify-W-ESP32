@@ -26,6 +26,41 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
   throw new Error("Missing Spotify client credentials");
 }
 
+function rgb565Bmp(
+  rgb565: Buffer,
+  width: number,
+  height: number
+): Buffer {
+  const fileHeaderSize = 14;
+  const dibHeaderSize = 40;
+  const pixelDataSize = width * height * 2;
+  const fileSize = fileHeaderSize + dibHeaderSize + pixelDataSize;
+
+  const header = Buffer.alloc(fileHeaderSize + dibHeaderSize);
+
+  // === FILE HEADER ===
+  header.write("BM", 0);                         // Signature
+  header.writeUInt32LE(fileSize, 2);              // File size
+  header.writeUInt32LE(0, 6);                     // Reserved
+  header.writeUInt32LE(fileHeaderSize + dibHeaderSize, 10);
+
+  // === DIB HEADER ===
+  header.writeUInt32LE(dibHeaderSize, 14);        // DIB size
+  header.writeInt32LE(width, 18);
+  header.writeInt32LE(-height, 22);               // top-down BMP
+  header.writeUInt16LE(1, 26);                    // Planes
+  header.writeUInt16LE(16, 28);                   // Bits per pixel
+  header.writeUInt32LE(3, 30);                    // BI_BITFIELDS
+  header.writeUInt32LE(pixelDataSize, 34);
+
+  // RGB565 masks
+  header.writeUInt32LE(0xF800, 54); // Red
+  header.writeUInt32LE(0x07E0, 58); // Green
+  header.writeUInt32LE(0x001F, 62); // Blue
+
+  return Buffer.concat([header, rgb565]);
+}
+
 const SCOPES = [
   "user-read-playback-state",
   "user-read-currently-playing",
@@ -302,44 +337,68 @@ router.post("/current-track-ESP32/:uuid", async (req, res) => {
     }
 
     /* ---- CURRENT TRACK ---- */
-    const trackRes = await fetch(
-      "https://api.spotify.com/v1/me/player/currently-playing",
-      {
-        headers: {
-          Authorization: `Bearer ${auth.spotify_access_token}`,
-        },
-      }
-    );
+const trackRes = await fetch(
+  "https://api.spotify.com/v1/me/player/currently-playing",
+  {
+    headers: {
+      Authorization: `Bearer ${auth.spotify_access_token}`,
+    },
+  }
+);
 
-    if (trackRes.status === 204) {
-      console.log("Not Playing")
-      return res.json({ playing: false });
-    }
+if (trackRes.status === 204) {
+  return res.json({ playing: false });
+}
 
-    const track = await trackRes.json();
-    const album300 =
+const track = await trackRes.json();
+
+const album300 =
   track.item?.album?.images?.find((i: any) => i.width === 300)?.url;
 
-  let albumBase64: string | null = null;
-  if (!album300) {
-    console.log("No 300x300 Album")
-    return res.status(204).end();}
-    const imgRes = await fetch(album300);
-    const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+if (!album300) {
+  console.log("Not playing")
+  return res.json({ playing: false });
+}
 
-    const resized = await sharp(imgBuf)
-      .resize(135, 135)
-      .jpeg({ quality: 70 })
-      .toBuffer();
+// Download image
+const imgRes = await fetch(album300);
+const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+
+// Resize + convert to RGB565
+const { data, info } = await sharp(imgBuf)
+  .resize(135, 135)
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+
+const rgb565 = Buffer.alloc(info.width * info.height * 2);
+
+for (let i = 0, j = 0; i + 2 < data.length; i += 3, j += 2) {
+  const r = data.readUInt8(i) >> 3;
+  const g = data.readUInt8(i + 1) >> 2;
+  const b = data.readUInt8(i + 2) >> 3;
+
+  rgb565.writeUInt16LE((r << 11) | (g << 5) | b, j);
+}
 
 
-  res.status(200);
-  res.set("Content-Type", "image/jpeg");
-  res.set("Content-Length", resized.length.toString());
-  res.set("X-Track-Name", track.name);
-  res.set("X-Track-Artist", track.artist);
-  
-  return res.send(resized);
+// Build BMP
+const bmp = rgb565Bmp(rgb565, info.width, info.height);
+
+// ✅ NORMAL JSON RESPONSE
+return res.json({
+  playing: true,
+  track: {
+    name: track.item?.name ?? "",
+    artist: track.item?.artists?.map((a: any) => a.name).join(", ") ?? "",
+  },
+  image: {
+    format: "bmp",
+    width: info.width,
+    height: info.height,
+    data: bmp.toString("base64"),
+  },
+});
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Internal server error" });
