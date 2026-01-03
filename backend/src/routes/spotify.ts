@@ -397,12 +397,6 @@ return res.json({
     name: track.item?.name ?? "",
     artist: track.item?.artists?.map((a: any) => a.name).join(", ") ?? "",
   },
-  image: {
-    format: "bmp",
-    width: info.width,
-    height: info.height,
-    data: bmp.toString("base64"),
-  },
 });
 
   } catch (err) {
