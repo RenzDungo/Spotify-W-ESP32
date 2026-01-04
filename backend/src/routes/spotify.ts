@@ -701,37 +701,6 @@ if (trackRes.status === 204) {
 
 const track = await trackRes.json();
 
-const album300 =
-  track.item?.album?.images?.find((i: any) => i.width === 300)?.url;
-
-if (!album300) {
-  console.log("Not playing")
-  return res.json({ playing: false });
-}
-
-// Download image
-const imgRes = await fetch(album300);
-const imgBuf = Buffer.from(await imgRes.arrayBuffer());
-
-// Resize + convert to RGB565
-const { data, info } = await sharp(imgBuf)
-  .resize(135, 135)
-  .raw()
-  .toBuffer({ resolveWithObject: true });
-
-const rgb565 = Buffer.alloc(info.width * info.height * 2);
-
-for (let i = 0, j = 0; i + 2 < data.length; i += 3, j += 2) {
-  const r = data.readUInt8(i) >> 3;
-  const g = data.readUInt8(i + 1) >> 2;
-  const b = data.readUInt8(i + 2) >> 3;
-
-  rgb565.writeUInt16LE((r << 11) | (g << 5) | b, j);
-}
-
-
-// Build BMP
-const bmp = rgb565Bmp(rgb565, info.width, info.height);
 
 // ✅ NORMAL JSON RESPONSE
 return res.json({
@@ -740,12 +709,7 @@ return res.json({
     name: track.item?.name ?? "",
     artist: track.item?.artists?.map((a: any) => a.name).join(", ") ?? "",
   },
-  image: {
-    format: "bmp",
-    width: info.width,
-    height: info.height,
-    data: bmp.toString("base64"),
-  },
+
 });
 
   } catch (err) {
@@ -753,4 +717,104 @@ return res.json({
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+router.get("/current-album-art/:uuid", async (req,res) => {
+  try{
+      const {uuid} = req.params;
+      if (!uuid) {return res.status(400).json({error:"No UUID provided"})}
+      const device = db.prepare<string, DeviceRow>(`
+        SELECT spotify_auth_id
+        FROM devices
+        WHERE UUID = ?
+        `).get(uuid);
+      if (!device) return res.status(401).json({error:"UUID does not match any Device UUIDs"});
+      let auth = db.prepare<number,SpotifyAuthRow>(`
+        SELECT spotify_access_token, spotify_refresh_token, spotify_expires_at
+        FROM spotify_auth
+        WHERE id = ?
+      `).get(device.spotify_auth_id);
+      if (!auth) return res.status(401).json({error:"No matching Spotify ID"});
+      /* ---- REFRESH IF NEEDED ---- */
+      if (isTokenExpired(auth.spotify_expires_at)) {
+        const response = await fetch("https://accounts.spotify.com/api/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization:
+              "Basic " +
+              Buffer.from(
+                `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+              ).toString("base64"),
+          },
+          body: new URLSearchParams({
+            grant_type: "refresh_token",
+            refresh_token: auth.spotify_refresh_token,
+          }),
+        });
+
+        const data = await response.json();
+        const newExpiresAt = Date.now() + data.expires_in * 1000;
+
+        db.prepare(`
+          UPDATE spotify_auth
+          SET
+            spotify_access_token = ?,
+            spotify_refresh_token = ?,
+            spotify_expires_at = ?
+          WHERE id = ?
+        `).run(
+          data.access_token,
+          data.refresh_token ?? auth.spotify_refresh_token,
+          newExpiresAt,
+          device.spotify_auth_id
+        );
+
+        auth = {
+          spotify_access_token: data.access_token,
+          spotify_refresh_token:
+            data.refresh_token ?? auth.spotify_refresh_token,
+          spotify_expires_at: newExpiresAt,
+        };
+      }
+      /* Get Current Album Art*/
+      const trackRes = await fetch(
+        "https://api.spotify.com/v1/me/player/currently-playing",
+        {
+          headers: { Authorization: `Bearer ${auth.spotify_access_token}` },
+        }
+      );
+
+      if (trackRes.status === 204) {
+        return res.status(204).json({error:"No song currently playing"});
+      }
+
+      const track = await trackRes.json();
+
+      const imageUrl =
+        track.item?.album?.images?.find((i: any) => i.width >= 300)?.url;
+
+      if (!imageUrl) {
+        return res.sendStatus(404);
+      }
+
+      /* ---- IMAGE FETCH ---- */
+      const imgRes = await fetch(imageUrl);
+      const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+
+      /* ---- RESIZE ---- */
+      const jpeg = await sharp(imgBuf)
+        .resize(135, 135)
+        .jpeg({ quality: 70 })
+        .toBuffer();
+
+      /* ---- RETURN JPEG (THIS IS THE KEY) ---- */
+      return res
+        .status(200)
+        .type("image/jpeg")
+        .send(jpeg);
+  }
+  catch (err){console.error("Album Art Error:", err)
+    return res.status(500).json({error:"Internal Servor Error"})
+  }
+})
 export default router;
