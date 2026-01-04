@@ -725,7 +725,7 @@ router.get("/current-album-art/:uuid", async (req,res) => {
       const device = db.prepare<string, DeviceRow>(`
         SELECT spotify_auth_id
         FROM devices
-        WHERE UUID = ?
+        WHERE device_uuid = ?
         `).get(uuid);
       if (!device) return res.status(401).json({error:"UUID does not match any Device UUIDs"});
       let auth = db.prepare<number,SpotifyAuthRow>(`
