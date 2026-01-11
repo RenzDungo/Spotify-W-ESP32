@@ -804,7 +804,7 @@ router.get("/current-album-art/:uuid", async (req,res) => {
       /* ---- RESIZE ---- */
       const jpeg = await sharp(imgBuf)
         .resize(135, 135)
-        .jpeg({ quality: 70 })
+        .jpeg({ quality: 70, progressive: false, chromaSubsampling:'4:2:0' })
         .toBuffer();
 
       /* ---- RETURN JPEG (THIS IS THE KEY) ---- */
